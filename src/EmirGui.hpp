@@ -16,25 +16,26 @@ namespace EmirGui {
         return CCMenuItemSpriteExtra::create(spr, target, callback);
     }
 
-    // Yazı buton
+    // Yazı buton — 3 argümanlı overload kullanıyoruz (non-inline, güvenli)
     inline CCMenuItemSpriteExtra* createTextBtn(
         const char* text,
         CCObject* target,
         SEL_MenuHandler callback
     ) {
-        auto spr = ButtonSprite::create(text);
+        // caption, font, texture — inline olmayan güvenli overload
+        auto spr = ButtonSprite::create(text, "bigFont.fnt", "GJ_button_01.png");
         return CCMenuItemSpriteExtra::create(spr, target, callback);
     }
 
-    // Toggle (açık/kapalı) buton — aktifken sarı, kapalıyken gri görünür
+    // Toggle (açık/kapalı) buton
     inline CCMenuItemToggler* createToggleBtn(
         const char* labelOn,
         const char* labelOff,
         CCObject* target,
         SEL_MenuHandler callback
     ) {
-        auto sprOn  = ButtonSprite::create(labelOn,  "goldFont.fnt");
-        auto sprOff = ButtonSprite::create(labelOff, "bigFont.fnt");
+        auto sprOn  = ButtonSprite::create(labelOn,  "bigFont.fnt", "GJ_button_02.png");
+        auto sprOff = ButtonSprite::create(labelOff, "bigFont.fnt", "GJ_button_04.png");
         return CCMenuItemToggler::create(sprOff, sprOn, target, callback);
     }
 

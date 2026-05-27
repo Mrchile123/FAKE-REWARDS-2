@@ -8,15 +8,13 @@ class HitboxOverlay : public CCNode {
 protected:
     CCDrawNode* m_draw;
 
-    bool init() {
+    bool init() override {
         if (!CCNode::init()) return false;
 
         m_draw = CCDrawNode::create();
         this->addChild(m_draw);
 
-        // Her frame güncelle
         this->scheduleUpdate();
-
         return true;
     }
 
@@ -24,7 +22,7 @@ protected:
     void drawNode(CCNode* node) {
         if (!node || !node->isVisible()) return;
 
-        auto bb = node->boundingBox();
+        auto bb     = node->boundingBox();
         auto parent = node->getParent();
 
         // Koordinatları dünya uzayına çevir
@@ -32,27 +30,28 @@ protected:
             ? parent->convertToWorldSpace(bb.origin)
             : bb.origin;
 
-        float w = bb.size.width  * node->getScaleX();
-        float h = bb.size.height * node->getScaleY();
+        float w = bb.size.width;
+        float h = bb.size.height;
+
+        if (w < 1.f && h < 1.f) return; // Görünmez küçük node'ları atla
 
         // Renk: dokunabilir (CCMenuItem) → yeşil, diğerleri → kırmızı
         bool isTouchable = dynamic_cast<CCMenuItem*>(node) != nullptr;
-        ccColor4F color = isTouchable
-            ? ccc4f(0.1f, 1.0f, 0.1f, 0.35f)
-            : ccc4f(1.0f, 0.1f, 0.1f, 0.20f);
+        ccColor4F fill   = isTouchable
+            ? ccc4f(0.1f, 1.0f, 0.1f, 0.25f)
+            : ccc4f(1.0f, 0.2f, 0.2f, 0.15f);
         ccColor4F border = isTouchable
             ? ccc4f(0.0f, 1.0f, 0.0f, 0.9f)
             : ccc4f(1.0f, 0.3f, 0.3f, 0.7f);
 
-        // Dünya koordinatına çevrilmiş köşeler
         CCPoint pts[4] = {
-            worldOrigin,
-            { worldOrigin.x + w, worldOrigin.y },
+            { worldOrigin.x,     worldOrigin.y     },
+            { worldOrigin.x + w, worldOrigin.y     },
             { worldOrigin.x + w, worldOrigin.y + h },
             { worldOrigin.x,     worldOrigin.y + h },
         };
 
-        m_draw->drawPolygon(pts, 4, color, 1.0f, border);
+        m_draw->drawPolygon(pts, 4, fill, 1.0f, border);
 
         // Çocukları da çiz
         auto children = node->getChildren();
@@ -73,8 +72,7 @@ protected:
 
         for (unsigned i = 0; i < children->count(); i++) {
             auto child = static_cast<CCNode*>(children->objectAtIndex(i));
-            // Overlay kendini çizmesin
-            if (child == this) continue;
+            if (child == this) continue; // Kendini çizme
             drawNode(child);
         }
     }
@@ -86,7 +84,7 @@ public:
             ret->autorelease();
             return ret;
         }
-        delete ret;
+        CC_SAFE_DELETE(ret);
         return nullptr;
     }
 };
