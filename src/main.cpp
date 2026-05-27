@@ -1,69 +1,47 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
-#include <Geode/modify/MenuLayer.hpp>
 
 using namespace geode::prelude;
 
-// Noclip durumunu saklamak için global değişken
-bool g_noclipEnabled = false;
-
-// PlayLayer kancası: Oyun içi Noclip mantığı
-class $modify(MyPlayLayer, PlayLayer) {
-    void update(float dt) override {
-        if (g_noclipEnabled && this->m_player1) {
-            this->m_player1->m_isDead = false;
-        }
-        PlayLayer::update(dt);
-    }
-};
-
-// GUI Katmanı: Ekranda küçük bir kutu oluşturur
-class NoclipGui : public cocos2d::CCLayer {
-public:
-    static NoclipGui* create() {
-        auto ret = new NoclipGui();
-        if (ret && ret->init()) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
+class FloatingMenu : public cocos2d::CCLayer {
+protected:
+    cocos2d::CCLayer* m_mainGui;
+    bool m_dragging = false;
 
     bool init() override {
-        // Bir buton oluştur (toggle görevi görecek)
-        auto btn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("Noclip: OFF", "bigFont.fnt", "GJ_button_01.png", .8f),
-            this,
-            menu_selector(NoclipGui::onToggle)
-        );
-        
-        auto menu = CCMenu::create();
-        menu->setPosition({ 100, 50 }); // Ekrandaki yeri
-        menu->addChild(btn);
+        // 1. Ana GUI (Gizli başlar)
+        m_mainGui = CCLayer::create();
+        m_mainGui->setVisible(false);
+        this->addChild(m_mainGui, 10);
+
+        // 2. Sürüklenen Daire Buton
+        auto circleSprite = CCSprite::create("circle_button.png"); // Kendi daire görselini ekle
+        auto toggleBtn = CCMenuItemSprite::create(circleSprite, circleSprite, this, menu_selector(FloatingMenu::onToggle));
+        auto menu = CCMenu::create(toggleBtn, nullptr);
+        menu->setPosition({50, 50});
         this->addChild(menu);
-        
+
+        // Dokunmatik olaylarını dinle
+        this->setTouchEnabled(true);
         return true;
     }
 
-    void onToggle(CCObject* sender) {
-        g_noclipEnabled = !g_noclipEnabled;
-        
-        // Buton yazısını güncelle
-        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
-        auto label = static_cast<ButtonSprite*>(btn->getChildren()->objectAtIndex(0));
-        label->setString(g_noclipEnabled ? "Noclip: ON" : "Noclip: OFF");
+    void onToggle(CCObject*) {
+        m_mainGui->setVisible(!m_mainGui->isVisible());
+    }
+
+    // Sürükleme Mantığı
+    void ccTouchMoved(cocos2d::CCTouch* pTouch, cocos2d::CCEvent* pEvent) override {
+        auto pos = pTouch->getLocation();
+        this->setPosition(pos); // Daireyi sürükle
     }
 };
 
-// Menüye GUI'yi ekle
-class $modify(MenuLayer) {
+// Hem Menu hem PlayLayer'da çalışması için
+class $modify(MyPlayLayer, PlayLayer) {
     bool init() override {
-        if (!MenuLayer::init()) return false;
-        
-        auto gui = NoclipGui::create();
-        this->addChild(gui, 100);
-        
+        if (!PlayLayer::init()) return false;
+        this->addChild(FloatingMenu::create(), 100);
         return true;
     }
 };
