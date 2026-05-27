@@ -1,30 +1,26 @@
+#pragma once
 #include <Geode/Geode.hpp>
-#include <Geode/modify/MenuLayer.hpp>
-#include "EmirGui.hpp"
 
 using namespace geode::prelude;
 
-class $modify(MyMenuLayer, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init()) return false;
-
-        auto menu = this->getChildByID("bottom-menu");
-        
-        // EmirGui ile buton oluşturma
-        auto btn = EmirGui::createCircleBtn(
-            "GJ_likeBtn_001.png", 
-            this, 
-            menu_selector(MyMenuLayer::onEmirClick)
-        );
-
-        btn->setID("emir-buton"_spr);
-        EmirGui::addToMenu(dynamic_cast<CCMenu*>(menu), btn);
-
-        return true;
+namespace EmirGui {
+    // Circle Button oluşturucu
+    inline CCMenuItemSpriteExtra* createCircleBtn(const char* sprName, CCObject* target, SEL_MenuHandler callback) {
+        auto spr = CircleButtonSprite::createWithSpriteFrameName(sprName);
+        return CCMenuItemSpriteExtra::create(spr, target, callback);
     }
 
-    void onEmirClick(CCObject* sender) {
-        // Framework'teki Popup sınıfını tetikleme
-        EmirGui::Popup::create("EmirGui Paneli")->show();
+    // Text Button oluşturucu
+    inline CCMenuItemSpriteExtra* createTextBtn(const char* text, CCObject* target, SEL_MenuHandler callback) {
+        auto spr = ButtonSprite::create(text);
+        return CCMenuItemSpriteExtra::create(spr, target, callback);
     }
-};
+
+    // Menüye güvenli ekleme ve hizalama (Layout)
+    inline void addToMenu(CCMenu* menu, CCNode* node) {
+        if (menu && node) {
+            menu->addChild(node);
+            menu->updateLayout();
+        }
+    }
+}
