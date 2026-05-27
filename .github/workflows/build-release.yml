@@ -2,8 +2,7 @@ name: Build and Release Geode Mod
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -23,19 +22,31 @@ jobs:
         with:
           target: Android64
 
-      - name: Show build output path
+      - name: Locate .geode file
+        id: geode
+        shell: bash
         run: |
           echo "build-output=${{ steps.build.outputs.build-output }}"
-          ls -lah ${{ steps.build.outputs.build-output }}
+          find "${{ steps.build.outputs.build-output }}" -type f | sed 's/^/output: /'
 
-      - name: Upload build artifact (Actions tab)
+          GEODE_FILE="$(find "${{ steps.build.outputs.build-output }}" -type f -name '*.geode' | head -n 1)"
+
+          if [ -z "$GEODE_FILE" ]; then
+            echo "No .geode file found under build output path" >&2
+            exit 1
+          fi
+
+          echo "Found .geode: $GEODE_FILE"
+          echo "file=$GEODE_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload .geode artifact (Actions tab)
         uses: actions/upload-artifact@v4
         with:
           name: geode-${{ github.sha }}
-          path: ${{ steps.build.outputs.build-output }}
+          path: ${{ steps.geode.outputs.file }}
           if-no-files-found: error
 
-      - name: Publish GitHub Release (per commit)
+      - name: Publish GitHub Release with .geode asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.sha }}
@@ -43,4 +54,4 @@ jobs:
           body: |
             Auto-generated .geode build for commit ${{ github.sha }}.
           prerelease: true
-          files: ${{ steps.build.outputs.build-output }}
+          files: ${{ steps.geode.outputs.file }}
