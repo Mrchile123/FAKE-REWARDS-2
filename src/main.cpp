@@ -2,6 +2,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -18,13 +19,22 @@ namespace {
     bool g_autoWave = true;
     bool g_showHitboxes = false;
     bool g_platformerAssist = false;
+    bool g_hidePlayer = false;
+    bool g_hideGround = false;
+    bool g_hideMG = false;
+    bool g_hideAttempts = false;
+    bool g_bgEffects = true;
     bool g_autoHoldingJump = false;
     bool g_autoHoldingRight = false;
+    int g_speedIndex = 2;
+
+    constexpr std::array<float, 5> kSpeedValues = { 0.50f, 0.75f, 1.00f, 1.50f, 2.00f };
 
     enum class HubTab {
         Player,
         Assist,
-        Visual
+        Visual,
+        Utility
     };
 
     constexpr auto kJumpButton = static_cast<PlayerButton>(1);
@@ -52,6 +62,22 @@ namespace {
         label->setPosition(position);
         parent->addChild(label, zOrder);
         return label;
+    }
+
+    float currentSpeed() {
+        auto safeIndex = std::clamp(g_speedIndex, 0, static_cast<int>(kSpeedValues.size()) - 1);
+        return kSpeedValues.at(safeIndex);
+    }
+
+    void setDebugDrawEnabled(PlayLayer* playLayer, bool enabled) {
+        if (!playLayer) {
+            return;
+        }
+
+        if (playLayer->shouldDebugDraw() != enabled) {
+            playLayer->toggleDebugDraw();
+        }
+        playLayer->updateDebugDrawSettings();
     }
 
     void releaseAutoButtons(PlayerObject* player = nullptr) {
@@ -248,10 +274,17 @@ protected:
     CCLabelBMFont* m_waveLabel = nullptr;
     CCLabelBMFont* m_platformerLabel = nullptr;
     CCLabelBMFont* m_hitboxLabel = nullptr;
+    CCLabelBMFont* m_hidePlayerLabel = nullptr;
+    CCLabelBMFont* m_hideGroundLabel = nullptr;
+    CCLabelBMFont* m_hideMGLabel = nullptr;
+    CCLabelBMFont* m_hideAttemptsLabel = nullptr;
+    CCLabelBMFont* m_bgEffectsLabel = nullptr;
+    CCLabelBMFont* m_speedLabel = nullptr;
     CCLabelBMFont* m_tabTitleLabel = nullptr;
     CCNode* m_playerPage = nullptr;
     CCNode* m_assistPage = nullptr;
     CCNode* m_visualPage = nullptr;
+    CCNode* m_utilityPage = nullptr;
     HubTab m_tab = HubTab::Assist;
     bool m_open = false;
     bool m_dragging = false;
@@ -354,8 +387,8 @@ public:
 
 private:
     void createPanel(CCSize winSize) {
-        m_panel = CCLayerColor::create({ 0, 0, 0, 0 }, 306.f, 232.f);
-        m_panel->setPosition({ winSize.width / 2.f - 153.f, winSize.height / 2.f - 116.f });
+        m_panel = CCLayerColor::create({ 0, 0, 0, 0 }, 332.f, 252.f);
+        m_panel->setPosition({ winSize.width / 2.f - 166.f, winSize.height / 2.f - 126.f });
         m_panel->setScale(0.86f);
         m_panel->setOpacity(0);
         m_panel->setVisible(false);
@@ -363,47 +396,63 @@ private:
         this->addChild(m_panel, 15);
 
         m_background = CCScale9Sprite::create("GJ_square01.png");
-        m_background->setContentSize({ 306.f, 232.f });
-        m_background->setPosition({ 153.f, 116.f });
-        m_background->setColor({ 20, 24, 38 });
-        m_background->setOpacity(242);
+        m_background->setContentSize({ 332.f, 252.f });
+        m_background->setPosition({ 166.f, 126.f });
+        m_background->setColor({ 16, 20, 34 });
+        m_background->setOpacity(246);
         m_panel->addChild(m_background);
 
-        auto glow = CCLayerColor::create({ 57, 172, 255, 48 }, 294.f, 34.f);
-        glow->setPosition({ 6.f, 190.f });
+        auto glow = CCLayerColor::create({ 57, 172, 255, 50 }, 320.f, 36.f);
+        glow->setPosition({ 6.f, 210.f });
         m_panel->addChild(glow, 1);
 
-        makeLabel("Emir Hub", "goldFont.fnt", 0.74f, { 153.f, 208.f }, m_panel, 2);
-        m_tabTitleLabel = makeLabel("Assist Suite", "bigFont.fnt", 0.32f, { 153.f, 187.f }, m_panel, 2);
+        makeLabel("Emir Hub", "goldFont.fnt", 0.76f, { 166.f, 228.f }, m_panel, 2);
+        m_tabTitleLabel = makeLabel("Assist Suite", "bigFont.fnt", 0.32f, { 166.f, 207.f }, m_panel, 2);
         m_tabTitleLabel->setColor({ 165, 210, 255 });
 
-        this->addTabButton("Player", { 64.f, 166.f }, menu_selector(ModernMenu::onPlayerTab), "player-tab"_spr);
-        this->addTabButton("Assist", { 153.f, 166.f }, menu_selector(ModernMenu::onAssistTab), "assist-tab"_spr);
-        this->addTabButton("Visual", { 242.f, 166.f }, menu_selector(ModernMenu::onVisualTab), "visual-tab"_spr);
+        this->addTabButton("Player", { 49.f, 184.f }, menu_selector(ModernMenu::onPlayerTab), "player-tab"_spr);
+        this->addTabButton("Assist", { 127.f, 184.f }, menu_selector(ModernMenu::onAssistTab), "assist-tab"_spr);
+        this->addTabButton("Visual", { 205.f, 184.f }, menu_selector(ModernMenu::onVisualTab), "visual-tab"_spr);
+        this->addTabButton("Utils", { 283.f, 184.f }, menu_selector(ModernMenu::onUtilityTab), "utility-tab"_spr);
 
         m_playerPage = CCNode::create();
         m_assistPage = CCNode::create();
         m_visualPage = CCNode::create();
+        m_utilityPage = CCNode::create();
         m_panel->addChild(m_playerPage, 3);
         m_panel->addChild(m_assistPage, 3);
         m_panel->addChild(m_visualPage, 3);
+        m_panel->addChild(m_utilityPage, 3);
 
-        m_damageLabel = this->addActionButton(m_playerPage, "No Death", { 83.f, 116.f }, menu_selector(ModernMenu::onToggleDamage), "damage-toggle"_spr);
-        m_practiceLabel = this->addActionButton(m_playerPage, "Practice", { 223.f, 116.f }, menu_selector(ModernMenu::onTogglePractice), "practice-toggle"_spr);
-        this->addActionButton(m_playerPage, "Restart", { 83.f, 68.f }, menu_selector(ModernMenu::onRestart), "restart-level"_spr);
-        this->addActionButton(m_playerPage, "About", { 223.f, 68.f }, menu_selector(ModernMenu::onAbout), "about-menu"_spr);
+        m_damageLabel = this->addActionButton(m_playerPage, "No Death", { 73.f, 135.f }, menu_selector(ModernMenu::onToggleDamage), "damage-toggle"_spr);
+        m_practiceLabel = this->addActionButton(m_playerPage, "Practice", { 166.f, 135.f }, menu_selector(ModernMenu::onTogglePractice), "practice-toggle"_spr);
+        m_hidePlayerLabel = this->addActionButton(m_playerPage, "Hide P1", { 259.f, 135.f }, menu_selector(ModernMenu::onToggleHidePlayer), "hide-player"_spr);
+        m_hideAttemptsLabel = this->addActionButton(m_playerPage, "Attempts", { 73.f, 82.f }, menu_selector(ModernMenu::onToggleHideAttempts), "hide-attempts"_spr);
+        this->addActionButton(m_playerPage, "Progress", { 166.f, 82.f }, menu_selector(ModernMenu::onProgressbar), "progress-toggle"_spr);
+        this->addActionButton(m_playerPage, "Info", { 259.f, 82.f }, menu_selector(ModernMenu::onInfoLabel), "info-toggle"_spr);
 
-        m_autoPlayLabel = this->addActionButton(m_assistPage, "Auto Play", { 83.f, 116.f }, menu_selector(ModernMenu::onToggleAutoPlay), "autoplay-toggle"_spr);
-        m_cubeLabel = this->addActionButton(m_assistPage, "Cube AI", { 223.f, 116.f }, menu_selector(ModernMenu::onToggleCube), "cube-toggle"_spr);
-        m_waveLabel = this->addActionButton(m_assistPage, "Wave AI", { 83.f, 68.f }, menu_selector(ModernMenu::onToggleWave), "wave-toggle"_spr);
-        m_platformerLabel = this->addActionButton(m_assistPage, "Platform", { 223.f, 68.f }, menu_selector(ModernMenu::onTogglePlatformer), "platform-toggle"_spr);
+        m_autoPlayLabel = this->addActionButton(m_assistPage, "Auto Play", { 73.f, 135.f }, menu_selector(ModernMenu::onToggleAutoPlay), "autoplay-toggle"_spr);
+        m_cubeLabel = this->addActionButton(m_assistPage, "Cube AI", { 166.f, 135.f }, menu_selector(ModernMenu::onToggleCube), "cube-toggle"_spr);
+        m_waveLabel = this->addActionButton(m_assistPage, "Wave AI", { 259.f, 135.f }, menu_selector(ModernMenu::onToggleWave), "wave-toggle"_spr);
+        m_platformerLabel = this->addActionButton(m_assistPage, "Platform", { 73.f, 82.f }, menu_selector(ModernMenu::onTogglePlatformer), "platform-toggle"_spr);
+        this->addActionButton(m_assistPage, "Auto All", { 166.f, 82.f }, menu_selector(ModernMenu::onAutoAll), "auto-all"_spr);
+        this->addActionButton(m_assistPage, "Release", { 259.f, 82.f }, menu_selector(ModernMenu::onReleaseInputs), "release-inputs"_spr);
 
-        m_hitboxLabel = this->addActionButton(m_visualPage, "Hitboxes", { 83.f, 116.f }, menu_selector(ModernMenu::onToggleHitboxes), "hitbox-toggle"_spr);
-        this->addActionButton(m_visualPage, "Progress", { 223.f, 116.f }, menu_selector(ModernMenu::onProgressbar), "progress-toggle"_spr);
-        this->addActionButton(m_visualPage, "Info", { 83.f, 68.f }, menu_selector(ModernMenu::onInfoLabel), "info-toggle"_spr);
-        this->addActionButton(m_visualPage, "Debug", { 223.f, 68.f }, menu_selector(ModernMenu::onDebugPulse), "debug-pulse"_spr);
+        m_hitboxLabel = this->addActionButton(m_visualPage, "Hitboxes", { 73.f, 135.f }, menu_selector(ModernMenu::onToggleHitboxes), "hitbox-toggle"_spr);
+        m_hideGroundLabel = this->addActionButton(m_visualPage, "Ground", { 166.f, 135.f }, menu_selector(ModernMenu::onToggleHideGround), "hide-ground"_spr);
+        m_hideMGLabel = this->addActionButton(m_visualPage, "MG", { 259.f, 135.f }, menu_selector(ModernMenu::onToggleHideMG), "hide-mg"_spr);
+        m_bgEffectsLabel = this->addActionButton(m_visualPage, "BG FX", { 73.f, 82.f }, menu_selector(ModernMenu::onToggleBGEffects), "bg-effects"_spr);
+        this->addActionButton(m_visualPage, "Debug", { 166.f, 82.f }, menu_selector(ModernMenu::onDebugPulse), "debug-pulse"_spr);
+        this->addActionButton(m_visualPage, "Glitter", { 259.f, 82.f }, menu_selector(ModernMenu::onGlitter), "glitter-toggle"_spr);
 
-        m_statusLabel = makeLabel("Ready", "chatFont.fnt", 0.52f, { 153.f, 18.f }, m_panel, 2);
+        m_speedLabel = this->addActionButton(m_utilityPage, "Speed", { 73.f, 135.f }, menu_selector(ModernMenu::onSpeedUp), "speed-up"_spr);
+        this->addActionButton(m_utilityPage, "Slower", { 166.f, 135.f }, menu_selector(ModernMenu::onSpeedDown), "speed-down"_spr);
+        this->addActionButton(m_utilityPage, "Normal", { 259.f, 135.f }, menu_selector(ModernMenu::onSpeedNormal), "speed-normal"_spr);
+        this->addActionButton(m_utilityPage, "Restart", { 73.f, 82.f }, menu_selector(ModernMenu::onRestart), "restart-level"_spr);
+        this->addActionButton(m_utilityPage, "Clear CP", { 166.f, 82.f }, menu_selector(ModernMenu::onClearCheckpoints), "clear-checkpoints"_spr);
+        this->addActionButton(m_utilityPage, "About", { 259.f, 82.f }, menu_selector(ModernMenu::onAbout), "about-menu"_spr);
+
+        m_statusLabel = makeLabel("Ready", "chatFont.fnt", 0.52f, { 166.f, 20.f }, m_panel, 2);
         m_statusLabel->setColor({ 170, 240, 170 });
     }
 
@@ -412,7 +461,7 @@ private:
         menu->setPosition(CCPointZero);
         m_panel->addChild(menu, 4);
 
-        auto sprite = ButtonSprite::create(text, 78, true, "bigFont.fnt", "GJ_button_05.png", 22.f, 0.38f);
+        auto sprite = ButtonSprite::create(text, 70, true, "bigFont.fnt", "GJ_button_05.png", 21.f, 0.34f);
         auto button = CCMenuItemSpriteExtra::create(sprite, this, callback);
         button->setPosition(position);
         button->setID(nodeID);
@@ -424,14 +473,14 @@ private:
         menu->setPosition(CCPointZero);
         page->addChild(menu, 3);
 
-        auto sprite = ButtonSprite::create(text, 112, true, "bigFont.fnt", "GJ_button_01.png", 25.f, 0.42f);
+        auto sprite = ButtonSprite::create(text, 82, true, "bigFont.fnt", "GJ_button_01.png", 24.f, 0.34f);
         auto button = CCMenuItemSpriteExtra::create(sprite, this, callback);
         button->setPosition(position);
         button->setID(nodeID);
         menu->addChild(button);
 
         auto label = CCLabelBMFont::create(text, "bigFont.fnt");
-        label->setScale(0.31f);
+        label->setScale(0.28f);
         label->setPosition(position + CCPoint { 0.f, -22.f });
         label->setOpacity(225);
         page->addChild(label, 2);
@@ -472,6 +521,60 @@ private:
         }
         if (m_assistPage) {
             m_assistPage->setVisible(tab == HubTab::Assist);
+        }
+        if (m_visualPage) {
+            m_visualPage->setVisible(tab == HubTab::Visual);
+        }
+        if (m_utilityPage) {
+            m_utilityPage->setVisible(tab == HubTab::Utility);
+        }
+        if (m_tabTitleLabel) {
+            switch (tab) {
+                case HubTab::Player:
+                    m_tabTitleLabel->setString("Player Controls");
+                    break;
+                case HubTab::Assist:
+                    m_tabTitleLabel->setString("Assist Suite");
+                    break;
+                case HubTab::Visual:
+                    m_tabTitleLabel->setString("Visual Tools");
+                    break;
+                case HubTab::Utility:
+                    m_tabTitleLabel->setString("Utility Deck");
+                    break;
+            }
+        }
+    }
+
+    void updateToggleLabel(CCLabelBMFont* label, char const* name, bool enabled, ccColor3B onColor = { 100, 255, 125 }, ccColor3B offColor = { 255, 135, 135 }) {
+        if (!label) {
+            return;
+        }
+
+        char buffer[64];
+        std::snprintf(buffer, sizeof(buffer), "%s: %s", name, enabled ? "ON" : "OFF");
+        label->setString(buffer);
+        label->setColor(enabled ? onColor : offColor);
+    }
+
+    void refreshStateLabels() {
+        this->updateToggleLabel(m_damageLabel, "No Death", g_ignoreDamage);
+        this->updateToggleLabel(m_practiceLabel, "Practice", g_practiceMode, { 100, 255, 125 }, { 255, 220, 120 });
+        this->updateToggleLabel(m_autoPlayLabel, "Auto Play", g_autoPlay, { 100, 255, 125 }, { 255, 135, 135 });
+        this->updateToggleLabel(m_cubeLabel, "Cube AI", g_autoCube, { 100, 255, 125 }, { 255, 220, 120 });
+        this->updateToggleLabel(m_waveLabel, "Wave AI", g_autoWave, { 100, 255, 125 }, { 255, 220, 120 });
+        this->updateToggleLabel(m_platformerLabel, "Platform", g_platformerAssist, { 100, 255, 125 }, { 185, 190, 255 });
+        this->updateToggleLabel(m_hitboxLabel, "Hitboxes", g_showHitboxes, { 100, 255, 125 }, { 185, 190, 255 });
+        this->updateToggleLabel(m_hidePlayerLabel, "Hide P1", g_hidePlayer, { 100, 255, 125 }, { 185, 190, 255 });
+        this->updateToggleLabel(m_hideGroundLabel, "Ground", g_hideGround, { 100, 255, 125 }, { 185, 190, 255 });
+        this->updateToggleLabel(m_hideMGLabel, "MG", g_hideMG, { 100, 255, 125 }, { 185, 190, 255 });
+        this->updateToggleLabel(m_hideAttemptsLabel, "Attempts", g_hideAttempts, { 100, 255, 125 }, { 185, 190, 255 });
+        this->updateToggleLabel(m_bgEffectsLabel, "BG FX", g_bgEffects, { 100, 255, 125 }, { 255, 135, 135 });
+        if (m_speedLabel) {
+            char buffer[64];
+            std::snprintf(buffer, sizeof(buffer), "Speed: %.2fx", currentSpeed());
+            m_speedLabel->setString(buffer);
+            m_speedLabel->setColor(g_speedIndex == 2 ? ccColor3B { 185, 190, 255 } : ccColor3B { 100, 255, 125 });
         }
         if (m_visualPage) {
             m_visualPage->setVisible(tab == HubTab::Visual);
@@ -523,10 +626,11 @@ private:
         std::snprintf(
             buffer,
             sizeof(buffer),
-            "%.2f%% | %s %s %s",
+            "%.2f%% | %s %s %.2fx %s",
             percent,
             g_autoPlay ? "Auto" : "Manual",
             g_showHitboxes ? "Hitbox" : "Clean",
+            currentSpeed(),
             g_ignoreDamage ? "Safe" : "Live"
         );
         m_statusLabel->setString(buffer);
@@ -539,9 +643,13 @@ private:
             if (g_practiceMode) {
                 playLayer->togglePracticeMode(true);
             }
-            if (g_showHitboxes) {
-                playLayer->updateDebugDrawSettings();
-            }
+            setDebugDrawEnabled(playLayer, g_showHitboxes);
+            playLayer->updateTimeMod(currentSpeed(), true, true);
+            playLayer->toggleHideAttempts(g_hideAttempts);
+            playLayer->togglePlayerVisibility(!g_hidePlayer);
+            playLayer->toggleGroundVisibility(!g_hideGround);
+            playLayer->toggleMGVisibility(!g_hideMG);
+            playLayer->toggleBGEffectVisibility(g_bgEffects);
         }
     }
 
@@ -555,6 +663,10 @@ private:
 
     void onVisualTab(CCObject*) {
         this->switchTab(HubTab::Visual);
+    }
+
+    void onUtilityTab(CCObject*) {
+        this->switchTab(HubTab::Utility);
     }
 
     void onToggleDamage(CCObject*) {
@@ -603,11 +715,70 @@ private:
         showToast(g_platformerAssist ? "Platform assist enabled" : "Platform assist disabled");
     }
 
+    void onAutoAll(CCObject*) {
+        g_autoPlay = true;
+        g_autoCube = true;
+        g_autoWave = true;
+        g_platformerAssist = true;
+        this->applyGameplayOptions();
+        this->refreshStateLabels();
+        showToast("Auto suite enabled");
+    }
+
+    void onReleaseInputs(CCObject*) {
+        releaseAutoButtons();
+        showToast("Auto inputs released");
+    }
+
+    void onToggleHidePlayer(CCObject*) {
+        g_hidePlayer = !g_hidePlayer;
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->togglePlayerVisibility(!g_hidePlayer);
+        }
+        this->refreshStateLabels();
+        showToast(g_hidePlayer ? "Player hidden" : "Player visible");
+    }
+
+    void onToggleHideAttempts(CCObject*) {
+        g_hideAttempts = !g_hideAttempts;
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->toggleHideAttempts(g_hideAttempts);
+        }
+        this->refreshStateLabels();
+        showToast(g_hideAttempts ? "Attempts hidden" : "Attempts visible");
+    }
+
+    void onToggleHideGround(CCObject*) {
+        g_hideGround = !g_hideGround;
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->toggleGroundVisibility(!g_hideGround);
+        }
+        this->refreshStateLabels();
+        showToast(g_hideGround ? "Ground hidden" : "Ground visible");
+    }
+
+    void onToggleHideMG(CCObject*) {
+        g_hideMG = !g_hideMG;
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->toggleMGVisibility(!g_hideMG);
+        }
+        this->refreshStateLabels();
+        showToast(g_hideMG ? "Middleground hidden" : "Middleground visible");
+    }
+
+    void onToggleBGEffects(CCObject*) {
+        g_bgEffects = !g_bgEffects;
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->toggleBGEffectVisibility(g_bgEffects);
+        }
+        this->refreshStateLabels();
+        showToast(g_bgEffects ? "BG effects enabled" : "BG effects disabled");
+    }
+
     void onToggleHitboxes(CCObject*) {
         g_showHitboxes = !g_showHitboxes;
         if (auto playLayer = PlayLayer::get()) {
-            playLayer->toggleDebugDraw();
-            playLayer->updateDebugDrawSettings();
+            setDebugDrawEnabled(playLayer, g_showHitboxes);
         }
         this->refreshStateLabels();
         showToast(g_showHitboxes ? "Hitboxes enabled" : "Hitboxes disabled");
@@ -634,6 +805,47 @@ private:
         }
     }
 
+    void onGlitter(CCObject*) {
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->toggleGlitter(true);
+            showToast("Glitter refreshed");
+        }
+    }
+
+    void onSpeedUp(CCObject*) {
+        g_speedIndex = std::min(g_speedIndex + 1, static_cast<int>(kSpeedValues.size()) - 1);
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->updateTimeMod(currentSpeed(), true, true);
+        }
+        this->refreshStateLabels();
+        showToast("Speed increased");
+    }
+
+    void onSpeedDown(CCObject*) {
+        g_speedIndex = std::max(g_speedIndex - 1, 0);
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->updateTimeMod(currentSpeed(), true, true);
+        }
+        this->refreshStateLabels();
+        showToast("Speed decreased");
+    }
+
+    void onSpeedNormal(CCObject*) {
+        g_speedIndex = 2;
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->updateTimeMod(currentSpeed(), true, true);
+        }
+        this->refreshStateLabels();
+        showToast("Speed reset");
+    }
+
+    void onClearCheckpoints(CCObject*) {
+        if (auto playLayer = PlayLayer::get()) {
+            playLayer->removeAllCheckpoints();
+            showToast("Checkpoints cleared");
+        }
+    }
+
     void onRestart(CCObject*) {
         releaseAutoButtons();
         if (auto playLayer = PlayLayer::get()) {
@@ -646,8 +858,8 @@ private:
     void onAbout(CCObject*) {
         FLAlertLayer::create(
             "Emir Hub",
-            "<cg>Emir Hub</c> now has Mega-Hack-style tabs, autoplay assists for <cy>cube</c> and <cy>wave</c>, hitbox/debug tools, and platformer helpers.\n\n"
-            "Auto Play is a safe heuristic assist; enable No Death while testing hard levels.",
+            "<cg>Emir Hub</c> is an all-in-one playtest hub with tabs for Player, Assist, Visual and Utility tools.\n\n"
+            "Includes No Death, Practice, Auto Play, cube/wave assists, platform helpers, hitboxes, visibility toggles, speed control and checkpoint tools.",
             "OK"
         )->show();
     }
@@ -667,10 +879,13 @@ class $modify(EmirHubPlayLayer, PlayLayer) {
         if (g_practiceMode) {
             this->togglePracticeMode(true);
         }
-        if (g_showHitboxes) {
-            this->toggleDebugDraw();
-            this->updateDebugDrawSettings();
-        }
+        setDebugDrawEnabled(this, g_showHitboxes);
+        this->updateTimeMod(currentSpeed(), true, true);
+        this->toggleHideAttempts(g_hideAttempts);
+        this->togglePlayerVisibility(!g_hidePlayer);
+        this->toggleGroundVisibility(!g_hideGround);
+        this->toggleMGVisibility(!g_hideMG);
+        this->toggleBGEffectVisibility(g_bgEffects);
         return true;
     }
 
@@ -686,9 +901,13 @@ class $modify(EmirHubPlayLayer, PlayLayer) {
         if (g_practiceMode) {
             this->togglePracticeMode(true);
         }
-        if (g_showHitboxes) {
-            this->updateDebugDrawSettings();
-        }
+        setDebugDrawEnabled(this, g_showHitboxes);
+        this->updateTimeMod(currentSpeed(), true, true);
+        this->toggleHideAttempts(g_hideAttempts);
+        this->togglePlayerVisibility(!g_hidePlayer);
+        this->toggleGroundVisibility(!g_hideGround);
+        this->toggleMGVisibility(!g_hideMG);
+        this->toggleBGEffectVisibility(g_bgEffects);
     }
 
     void onQuit() {
