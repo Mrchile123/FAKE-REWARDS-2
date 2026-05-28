@@ -80,6 +80,24 @@ namespace {
         playLayer->updateDebugDrawSettings();
     }
 
+    void applyPlayLayerOptions(PlayLayer* playLayer) {
+        if (!playLayer) {
+            return;
+        }
+
+        playLayer->toggleIgnoreDamage(g_ignoreDamage);
+        if (g_practiceMode) {
+            playLayer->togglePracticeMode(true);
+        }
+        setDebugDrawEnabled(playLayer, g_showHitboxes);
+        playLayer->updateTimeMod(currentSpeed(), true, true);
+        playLayer->toggleHideAttempts(g_hideAttempts);
+        playLayer->togglePlayerVisibility(!g_hidePlayer);
+        playLayer->toggleGroundVisibility(!g_hideGround);
+        playLayer->toggleMGVisibility(!g_hideMG);
+        playLayer->toggleBGEffectVisibility(g_bgEffects);
+    }
+
     void releaseAutoButtons(PlayerObject* player = nullptr) {
         if (!player) {
             if (auto playLayer = PlayLayer::get()) {
@@ -576,22 +594,6 @@ private:
             m_speedLabel->setString(buffer);
             m_speedLabel->setColor(g_speedIndex == 2 ? ccColor3B { 185, 190, 255 } : ccColor3B { 100, 255, 125 });
         }
-        if (m_visualPage) {
-            m_visualPage->setVisible(tab == HubTab::Visual);
-        }
-        if (m_tabTitleLabel) {
-            switch (tab) {
-                case HubTab::Player:
-                    m_tabTitleLabel->setString("Player Controls");
-                    break;
-                case HubTab::Assist:
-                    m_tabTitleLabel->setString("Assist Suite");
-                    break;
-                case HubTab::Visual:
-                    m_tabTitleLabel->setString("Visual Tools");
-                    break;
-            }
-        }
     }
 
     void updateToggleLabel(CCLabelBMFont* label, char const* name, bool enabled, ccColor3B onColor = { 100, 255, 125 }, ccColor3B offColor = { 255, 135, 135 }) {
@@ -638,19 +640,23 @@ private:
     }
 
     void applyGameplayOptions() {
-        if (auto playLayer = PlayLayer::get()) {
-            playLayer->toggleIgnoreDamage(g_ignoreDamage);
-            if (g_practiceMode) {
-                playLayer->togglePracticeMode(true);
-            }
-            setDebugDrawEnabled(playLayer, g_showHitboxes);
-            playLayer->updateTimeMod(currentSpeed(), true, true);
-            playLayer->toggleHideAttempts(g_hideAttempts);
-            playLayer->togglePlayerVisibility(!g_hidePlayer);
-            playLayer->toggleGroundVisibility(!g_hideGround);
-            playLayer->toggleMGVisibility(!g_hideMG);
-            playLayer->toggleBGEffectVisibility(g_bgEffects);
-        }
+        applyPlayLayerOptions(PlayLayer::get());
+    }
+
+    void onPlayerTab(CCObject*) {
+        this->switchTab(HubTab::Player);
+    }
+
+    void onAssistTab(CCObject*) {
+        this->switchTab(HubTab::Assist);
+    }
+
+    void onVisualTab(CCObject*) {
+        this->switchTab(HubTab::Visual);
+    }
+
+    void onUtilityTab(CCObject*) {
+        this->switchTab(HubTab::Utility);
     }
 
     void onPlayerTab(CCObject*) {
@@ -875,17 +881,7 @@ class $modify(EmirHubPlayLayer, PlayLayer) {
             this->addChild(menu, 9999);
         }
 
-        this->toggleIgnoreDamage(g_ignoreDamage);
-        if (g_practiceMode) {
-            this->togglePracticeMode(true);
-        }
-        setDebugDrawEnabled(this, g_showHitboxes);
-        this->updateTimeMod(currentSpeed(), true, true);
-        this->toggleHideAttempts(g_hideAttempts);
-        this->togglePlayerVisibility(!g_hidePlayer);
-        this->toggleGroundVisibility(!g_hideGround);
-        this->toggleMGVisibility(!g_hideMG);
-        this->toggleBGEffectVisibility(g_bgEffects);
+        applyPlayLayerOptions(this);
         return true;
     }
 
@@ -897,17 +893,7 @@ class $modify(EmirHubPlayLayer, PlayLayer) {
     void resetLevel() {
         releaseAutoButtons(this->m_player1);
         PlayLayer::resetLevel();
-        this->toggleIgnoreDamage(g_ignoreDamage);
-        if (g_practiceMode) {
-            this->togglePracticeMode(true);
-        }
-        setDebugDrawEnabled(this, g_showHitboxes);
-        this->updateTimeMod(currentSpeed(), true, true);
-        this->toggleHideAttempts(g_hideAttempts);
-        this->togglePlayerVisibility(!g_hidePlayer);
-        this->toggleGroundVisibility(!g_hideGround);
-        this->toggleMGVisibility(!g_hideMG);
-        this->toggleBGEffectVisibility(g_bgEffects);
+        applyPlayLayerOptions(this);
     }
 
     void onQuit() {
