@@ -35,7 +35,7 @@ Emir Hub is an in-level Geode playtest menu for Geometry Dash. It is built as a 
 
 ## Notes
 
-Auto Play is a heuristic playtest assist, not a perfect verifier. It scans visible gameplay collision objects ahead of the player and supports cube, ship, ball, UFO, wave, robot, spider, swing, and platformer-style tests. It works best with **No Death** enabled while tuning hard levels.
+4Auto Play is a heuristic playtest assist, not a perfect verifier. It scans visible gameplay collision objects ahead of the player and supports cube, ship, ball, UFO, wave, robot, spider, swing, and platformer-style tests. It works best with **No Death** enabled while tuning hard levels.
 
 ## Build instructions
 
