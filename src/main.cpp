@@ -15,8 +15,8 @@ namespace {
     bool g_ignoreDamage = false;
     bool g_practiceMode = false;
     bool g_autoPlay = false;
-    bool g_autoCube = true;
-    bool g_autoWave = true;
+    bool g_autoAvoidSolids = true;
+    bool g_autoAvoidSpikes = true;
     bool g_showHitboxes = false;
     bool g_platformerAssist = false;
     bool g_hidePlayer = false;
@@ -271,14 +271,54 @@ namespace {
         return rect;
     }
 
+    bool objectLooksHazardous(GameObject* object) {
+        if (!object) {
+            return false;
+        }
+
+        // m_slopeIsHazard is set for spike-like slopes. The ID fallback catches the
+        // classic spike/saw families when the flag is unavailable or not populated.
+        static constexpr std::array<int, 31> kKnownHazardIDs = {
+            8, 39, 103, 171, 175, 176, 177, 178, 179, 180, 181, 392, 393, 394,
+            458, 459, 660, 661, 662, 1331, 1332, 1333, 1334, 1335, 1336, 1337,
+            1338, 1339, 1340, 1341, 1342
+        };
+        return object->m_slopeIsHazard || std::find(kKnownHazardIDs.begin(), kKnownHazardIDs.end(), object->m_objectID) != kKnownHazardIDs.end();
+    }
+
+
     bool looksLikeGameplayCollision(GameObject* object) {
-        if (!object || !object->isVisible() || object->m_isDisabled || object->m_isGroupDisabled || object->m_isTrigger) {
+        if (!object || !object->isVisible() || object->m_isDisabled || object->m_isDisabled2 || object->m_isGroupDisabled || object->m_isGroupDisabledTemp) {
             return false;
         }
-        if (object->m_isDecoration || object->m_isDecoration2 || object->m_isPassable || object->m_isNoTouch || object->m_isInvisible) {
+        if (object->m_isTrigger || object->m_isDecoration || object->m_isDecoration2 || object->m_isInvisible || object->m_objectID <= 0) {
             return false;
         }
-        return object->m_objectID > 0;
+
+        // Spikes/saws are passable in the physical sense but still lethal, so keep
+        // them even when regular solid collision flags are off.
+        if (objectLooksHazardous(object)) {
+            return true;
+        }
+        return !object->m_isPassable && !object->m_isNoTouch;
+    }
+
+    float modeLookAhead(PlayerObject* player, PlayerMode mode) {
+        auto speed = std::max(260.f, std::abs(static_cast<float>(player->getCurrentXVelocity())));
+        auto base = isGroundMode(mode) ? 0.72f : 0.95f;
+        auto minLook = isGroundMode(mode) ? 145.f : 190.f;
+        auto maxLook = isGroundMode(mode) ? 285.f : 360.f;
+        return std::clamp(speed * base, minLook, maxLook);
+    }
+
+    CCRect playerRectAt(PlayerObject* player, float futureX, float futureY, float paddingX = 4.f, float paddingY = 4.f) {
+        auto rect = player->getObjectRect();
+        auto delta = CCPoint { futureX - player->getPositionX(), futureY - player->getPositionY() };
+        rect.origin.x += delta.x - paddingX;
+        rect.origin.y += delta.y - paddingY;
+        rect.size.width += paddingX * 2.f;
+        rect.size.height += paddingY * 2.f;
+        return rect;
     }
 
     float modeLookAhead(PlayerObject* player, PlayerMode mode) {
@@ -296,6 +336,9 @@ namespace {
         }
 
         auto playerPos = player->getPosition();
+        auto lookAhead = modeLookAhead(player, mode);
+        auto verticalRange = isGroundMode(mode) ? 260.f : 380.f;
+
         for (auto node : layer->m_objectLayer->getChildrenExt()) {
             auto object = typeinfo_cast<GameObject*>(node);
             if (!looksLikeGameplayCollision(object)) {
@@ -310,8 +353,13 @@ namespace {
             if (std::abs(objectPos.y - playerPos.y) > verticalRange) {
                 continue;
             }
-            objects.push_back(object);
+
+            objects.push_back({ rect, hazard, std::max(0.f, dx) });
         }
+
+        std::sort(objects.begin(), objects.end(), [](DangerObject const& a, DangerObject const& b) {
+            return a.distance < b.distance;
+        });
         return objects;
     }
 
@@ -356,6 +404,8 @@ namespace {
                 scan.wallAhead = true;
             }
         }
+        return player->m_isUpsideDown ? yVelocity > 2.2f : yVelocity < -2.2f;
+    }
 
         scan.safeTargetY = desiredY;
         return scan;
@@ -824,13 +874,13 @@ private:
     }
 
     void onToggleCube(CCObject*) {
-        g_autoCube = !g_autoCube;
+        g_autoAvoidSolids = !g_autoAvoidSolids;
         this->syncStateLabels();
         showToast(g_autoCube ? "Ground Auto enabled" : "Ground Auto disabled");
     }
 
     void onToggleWave(CCObject*) {
-        g_autoWave = !g_autoWave;
+        g_autoAvoidSpikes = !g_autoAvoidSpikes;
         this->syncStateLabels();
         showToast(g_autoWave ? "Air Auto enabled" : "Air Auto disabled");
     }
@@ -846,12 +896,11 @@ private:
 
     void onAutoAll(CCObject*) {
         g_autoPlay = true;
-        g_autoCube = true;
-        g_autoWave = true;
-        g_platformerAssist = true;
+        g_autoAvoidSolids = true;
+        g_autoAvoidSpikes = true;
         this->applyGameplayOptions();
         this->syncStateLabels();
-        showToast("Auto suite enabled");
+        showToast("Detailed Auto Play enabled");
     }
 
     void onReleaseInputs(CCObject*) {
