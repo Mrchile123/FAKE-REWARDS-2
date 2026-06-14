@@ -8,6 +8,9 @@ set(MOD_VERSION "1.0.0")
 set(MOD_DEVELOPER "Mrchile123")
 set(MOD_DESCRIPTION "Un mod que muestra recompensas falsas en Geometry Dash")
 
+# Establecer plataforma target (Android para Geometry Dash móvil)
+set(GEODE_TARGET_PLATFORM Android)
+
 # Incluir Geode SDK
 include($ENV{GEODE_SDK_PATH}/cmake/geode.cmake)
 
