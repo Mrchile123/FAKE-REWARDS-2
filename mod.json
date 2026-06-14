@@ -6,11 +6,11 @@
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"id": "$MOD_ID",
-	"name": "$MOD_NAME",
-	"version": "$MOD_VERSION",
-	"developer": "$MOD_DEVELOPER",
-	"description": "$MOD_DESCRIPTION",
+	"id": "mrchile123.fake_rewards",
+	"name": "Fake Rewards 2",
+	"version": "1.0.0",
+	"developer": "Mrchile123",
+	"description": "Un mod que muestra recompensas falsas en Geometry Dash",
 	"dependencies": {
 		"geode.node-ids": ">=v1.23.3"
 	}
